@@ -21,16 +21,29 @@ namespace ps_aspnetmvc.Data
 
         public async Task<string> SaveImage(Stream stream)
         {
-            var id = Guid.NewGuid().ToString();
-            var container = _client.GetContainerReference("images");
-            var blob = container.GetBlockBlobReference(id);
-            await blob.UploadFromStreamAsync(stream);
+            var id = Guid.NewGuid().ToString();            
+            await GetBlobReference(id).UploadFromStreamAsync(stream);
             return id;
         }
 
         public Uri UriFor(string imageId)
         {
-            return new Uri(_baseUri, $"/images/{imageId}");
+            var sasPolicy = new SharedAccessBlobPolicy
+            {
+                Permissions = SharedAccessBlobPermissions.Read,
+                SharedAccessStartTime = DateTime.Now.AddMinutes(-60),
+                SharedAccessExpiryTime = DateTime.Now.AddMinutes(30)
+            };
+
+            var sasToken = GetBlobReference(imageId).GetSharedAccessSignature(sasPolicy);
+
+            return new Uri(_baseUri, $"/images/{imageId}{sasToken}");
+        }
+
+        private CloudBlockBlob GetBlobReference(string id)
+        {
+            var container = _client.GetContainerReference("images");
+            return container.GetBlockBlobReference(id);
         }
     }
 }
